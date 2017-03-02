@@ -7,7 +7,6 @@ import "fmt"
 import "sync"
 
 /*
-#cgo LDFLAGS: -lstemmer
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -75,55 +74,53 @@ import "C"
 
 // get a list of the stemming algorithms supported by this version of libstemmer
 func GetSupportedLanguages() []string {
-    alg_count := int(C.get_num_algorithms());
-    out := make([]string, alg_count)
-    for x := 0; x < alg_count; x++ {
-        out[x] = C.GoString(C.get_algorithm_x(C.int(x)))
-    }
-    return out
+	alg_count := int(C.get_num_algorithms())
+	out := make([]string, alg_count)
+	for x := 0; x < alg_count; x++ {
+		out[x] = C.GoString(C.get_algorithm_x(C.int(x)))
+	}
+	return out
 }
 
-
 type Stemmer struct {
-    stemmer *C.struct_sb_stemmer
-    lock *sync.Mutex
+	stemmer *C.struct_sb_stemmer
+	lock    *sync.Mutex
 }
 
 // internal method for GCing the C allocated stemmer
 func (s Stemmer) Close() {
-    C.sb_stemmer_delete(s.stemmer)
+	C.sb_stemmer_delete(s.stemmer)
 }
 
 // Create a new stemmer, ready for use with the specified language
 func NewStemmer(language string) (*Stemmer, error) {
-    clang := C.CString(strings.ToLower(language))
-    defer C.free(unsafe.Pointer(clang))
-    cchar := C.CString("UTF_8")
-    defer C.free(unsafe.Pointer(cchar))
-    tmp := C.sb_stemmer_new(clang, cchar)
-    if tmp == nil {
-        return nil, fmt.Errorf("Unable to create stemmer, please ensure you are using a valid language")
-    }
-    stemmer := &Stemmer{
-        stemmer: tmp,
-        lock: new(sync.Mutex),
-    }
-    return stemmer, nil
+	clang := C.CString(strings.ToLower(language))
+	defer C.free(unsafe.Pointer(clang))
+	cchar := C.CString("UTF_8")
+	defer C.free(unsafe.Pointer(cchar))
+	tmp := C.sb_stemmer_new(clang, cchar)
+	if tmp == nil {
+		return nil, fmt.Errorf("Unable to create stemmer, please ensure you are using a valid language")
+	}
+	stemmer := &Stemmer{
+		stemmer: tmp,
+		lock:    new(sync.Mutex),
+	}
+	return stemmer, nil
 }
 
 func (s Stemmer) StemWord(str string) string {
-    cstr := C.CString(str)
-    defer C.free(unsafe.Pointer(cstr))
-    sbs := C.str_to_sb_symbol(cstr)
-    defer C.free(unsafe.Pointer(sbs))
+	cstr := C.CString(str)
+	defer C.free(unsafe.Pointer(cstr))
+	sbs := C.str_to_sb_symbol(cstr)
+	defer C.free(unsafe.Pointer(sbs))
 
-    s.lock.Lock()
-    stemmed := C.sb_stemmer_stem(s.stemmer, sbs, C.int(len(str)))
-    s.lock.Unlock()
+	s.lock.Lock()
+	stemmed := C.sb_stemmer_stem(s.stemmer, sbs, C.int(len(str)))
+	s.lock.Unlock()
 
-    char := C.sb_symbol_to_char(stemmed)
-    val := C.GoString(char)
+	char := C.sb_symbol_to_char(stemmed)
+	val := C.GoString(char)
 
-    return val
+	return val
 }
-
